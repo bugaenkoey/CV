@@ -10,5 +10,5 @@ Java Розробив програму для пересилки файлу че
 Android Розробив додаток для збереження дат днів народжень в SQLite  з набором номера іменинника
 C# Розробив серверну частину з SQL базою для взаємодії через API.
 Angular Сайт замовлення послуг манікюру із взаємодією з моїм сервером на C# через API.
-Знайомий з C++, SQL, Java, Kotlin, Android, HTML, CSS, JS, TS, PHP, C#, Angular, Uniti, Azure.
+Знайомий з C++, SQL, Java, Kotlin, Android, HTML, CSS, JS, TS, PHP, C#, Angular, Unity, Azure.
 Телефон: +380 66 3656450

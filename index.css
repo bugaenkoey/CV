@@ -1,19 +1,26 @@
-/* body{
-    background-color: bisque;
-} */
+body {
 
-#avatar{
-    height: 400px;;
-border-radius: 50%;
-/* text-align: center; */
-display: block;
-margin: 0 auto;
-
+  width: 80%;
+  margin: auto;
+  background-color: lightblue;
+  padding-top: 50px;
+  padding-right: 30px;
+  padding-bottom: 50px;
+  padding-left: 80px;
 }
-.center{
+
+#avatar {
+  height: 200px;
+  border-radius: 50%;
+  /* text-align: center; */
+  display: block;
+  margin: 0 auto;
+}
+
+.center {
   text-align: center;
 }
 
-.QRCode{
-  height: 200px;  
+.QRCode {
+  height: 200px;
 }
