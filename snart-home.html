@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>KNX Smart Home Professional</title>
+    <style>
+        :root {
+            --knx-green: #76b82a;
+            --knx-blue: #0054a6;
+            --heat-color: rgba(255, 69, 0, 0.35);
+            --icon-bg: rgba(255, 255, 255, 0.9);
+        }
+
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: white; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px; }
+        
+        .floorplan-wrapper {
+            position: relative;
+            width: 1000px;
+            height: 750px;
+            background: url('plan.jpg') no-repeat center/cover;
+            border: 5px solid #333;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 0 60px rgba(0,0,0,0.9);
+        }
+
+        /* Зони підлоги */
+        .heating-zone {
+            position: absolute;
+            opacity: 0;
+            transition: opacity 2s ease;
+            pointer-events: none;
+            background: var(--heat-color);
+            z-index: 1;
+        }
+        .heating-active { opacity: 1; }
+
+        /* Світлові ефекти */
+        .light-glow {
+            position: absolute;
+            background: radial-gradient(circle, rgb(249, 191, 1) 0%, rgba(255, 250, 200, 0) 75%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            z-index: 2;
+        }
+
+        /* Штори */
+        .blind-overlay {
+            position: absolute;
+            background: rgba(30, 30, 30, 0.8);
+            border-left: 2px solid #555;
+            z-index: 5;
+            height: 280px;
+            width: 0px;
+            top: 80px;
+            right: 155px;
+            transition: width 0.1s linear;
+        }
+
+        /* Стиль іконок-кнопок */
+        .knx-icon {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            background: var(--icon-bg);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            font-size: 18px;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .knx-icon:hover { transform: scale(1.1); background: #fff; }
+        .knx-icon.active { background: var(--knx-green); color: white; border-color: var(--knx-green); }
+        .knx-icon.master { background: #e74c3c; color: white; }
+
+        /* Анімація вентилятора */
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .spinning { animation: spin 0.8s linear infinite; color: var(--knx-blue); }
+
+        /* Лог шини */
+        #bus-log {
+            width: 1000px; height: 120px; background: #000; color: #0f0;
+            font-family: 'Consolas', monospace; padding: 10px; margin-top: 15px;
+            overflow-y: auto; font-size: 12px; border-radius: 8px; border: 1px solid #333;
+        }
+
+        .dimmer-control {
+            position: absolute;
+            z-index: 20;
+            background: rgba(0,0,0,0.8);
+            padding: 5px;
+            border-radius: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="floorplan-wrapper">
+        <div id="heat-living" class="heating-zone" style="top: 100px; left: 317px; width: 410px; height: 270px;"></div>
+        <div id="heat-bedroom" class="heating-zone" style="top: 390px; left: 410px; width: 350px; height: 250px;"></div>
+        <div id="heat-hall" class="heating-zone" style="top: 350px; left: 120px; width: 255px; height: 90px;"></div>
+        <div id="heat-bath" class="heating-zone" style="top: 465px; left: 160px; width: 140px; height: 100px;"></div>
+
+        <div id="glow-living" class="light-glow" style="top: 80px; left: 400px; width: 350px; height: 350px;"></div>
+        <div id="glow-bed-l" class="light-glow" style="top: 560px; left: 370px; width: 150px; height: 150px;"></div>
+        <div id="glow-bed-r" class="light-glow" style="top: 560px; left: 580px; width: 150px; height: 150px;"></div>
+        <div id="glow-bath" class="light-glow" style="top: 450px; left: 150px; width: 150px; height: 150px;"></div>
+        <div id="glow-hall" class="light-glow" style="top: 320px; left: 80px; width: 150px; height: 150px;"></div>
+
+        <div id="blind-living" class="blind-overlay"></div>
+
+        <div class="knx-icon" style="top: 300px; left: 550px;" onclick="showDimmer(event)" title="Димер">💡</div>
+        <div id="blind-btn" class="knx-icon" style="top: 300px; left: 600px;" title="Затисніть штори">↕</div>
+        <div class="knx-icon" style="top: 300px; left: 650px;" onclick="toggleHeat('living', this)">♨️</div>
+        
+        <div class="knx-icon" style="top: 600px; left: 455px;" onclick="toggleLight('bed-l', this)">💡</div>
+        <div class="knx-icon" style="top: 600px; left: 680px;" onclick="toggleLight('bed-r', this)">💡</div>
+        <div class="knx-icon" style="top: 520px; left: 650px;" onclick="toggleHeat('bedroom', this)">♨️</div>
+
+        <div class="knx-icon" style="bottom: 50px; left: 120px;" onclick="toggleLight('bath', this)">💡</div>
+        <div class="knx-icon" style="bottom: 50px; left: 160px;" onclick="toggleHeat('bath', this)">♨️</div>
+        <div class="knx-icon" style="bottom: 50px; left: 200px;" onclick="toggleFan(this)">🌀</div>
+
+        <div class="knx-icon" style="top: 290px; left: 130px;" onclick="toggleLight('hall', this)">💡</div>
+        <div class="knx-icon" style="top: 330px; left: 130px;" onclick="toggleHeat('hall', this)">♨️</div>
+        <div class="knx-icon master" style="top: 450px; left: 30px;" onclick="masterOff()" title="Майстер ВИМК">🚪</div>
+
+        <div id="dimmer-ui" class="dimmer-control">
+            <input type="range" min="0" max="100" value="0" oninput="dimLight(this.value)">
+        </div>
+    </div>
+
+    <div id="bus-log">> Шина KNX готова до роботи.</div>
+
+    <script>
+        const log = (ga, val, dpt) => {
+            const el = document.getElementById('bus-log');
+            el.innerHTML = `<div>[${new Date().toLocaleTimeString()}] GA:${ga} | Val:${val} | DPT:${dpt}</div>` + el.innerHTML;
+        };
+
+        // --- ОСВІТЛЕННЯ ---
+        function toggleLight(id, btn) {
+            const glow = document.getElementById(`glow-${id}`);
+            const isActive = glow.style.opacity == "1";
+            glow.style.opacity = isActive ? "0" : "1";
+            btn.classList.toggle('active');
+            log('1/1/' + id.length, isActive ? 'OFF' : 'ON', '1.001');
+        }
+
+        // --- ДИМЕР (Вітальня) ---
+        function showDimmer(e) {
+            const ui = document.getElementById('dimmer-ui');
+            ui.style.display = ui.style.display === 'block' ? 'none' : 'block';
+            ui.style.left = (e.pageX - 50) + 'px';
+            ui.style.top = (e.pageY - 50) + 'px';
+        }
+
+        function dimLight(val) {
+            const glow = document.getElementById('glow-living');
+            glow.style.opacity = val / 100;
+            log('1/1/10', val + '%', '5.001');
+        }
+
+        // --- ТЕПЛА ПІДЛОГА ---
+        function toggleHeat(id, btn) {
+            const zone = document.getElementById(`heat-${id}`);
+            const isActive = zone.classList.toggle('heating-active');
+            btn.classList.toggle('active');
+            log('1/3/' + id.length, isActive ? 'ON' : 'OFF', '1.001');
+        }
+
+        // --- ВЕНТИЛЯТОР ---
+        function toggleFan(btn) {
+            const icon = btn;
+            const isActive = icon.classList.toggle('active');
+            icon.firstChild.nextSibling ? null : icon.innerHTML = "🌀"; // Захист тексту
+            icon.classList.toggle('spinning');
+            log('1/4/1', isActive ? 'START' : 'STOP', '1.001');
+        }
+
+        // --- ШТОРИ (Логіка затискання) ---
+        let blindPos = 0;
+        let blindInterval;
+        let blindDir = 1; 
+        const blindBtn = document.getElementById('blind-btn');
+        const blindOverlay = document.getElementById('blind-living');
+
+        function moveBlind() {
+            blindPos += blindDir * 3;
+            if (blindPos > 150) blindPos = 150;
+            if (blindPos < 0) blindPos = 0;
+            blindOverlay.style.width = blindPos + 'px';
+            if (blindPos === 150 || blindPos === 0) stopBlind();
+        }
+
+        function startBlind() {
+            blindBtn.classList.add('active');
+            log('1/2/1', blindDir === 1 ? 'DOWN' : 'UP', '1.008');
+            blindInterval = setInterval(moveBlind, 50);
+        }
+
+        function stopBlind() {
+            clearInterval(blindInterval);
+            blindBtn.classList.remove('active');
+            blindDir *= -1;
+            log('1/2/1', 'STOP', '1.008');
+        }
+
+        blindBtn.addEventListener('mousedown', startBlind);
+        blindBtn.addEventListener('mouseup', stopBlind);
+
+        // --- МАЙСТЕР ВИМКНЕННЯ ---
+        function masterOff() {
+            // Світло
+            document.querySelectorAll('.light-glow').forEach(g => g.style.opacity = "0");
+            // Підлога
+            document.querySelectorAll('.heating-zone').forEach(h => h.classList.remove('heating-active'));
+            // Іконки
+            document.querySelectorAll('.knx-icon').forEach(i => i.classList.remove('active', 'spinning'));
+            // Штори
+            blindPos = 150;
+            blindOverlay.style.width = '150px';
+            blindDir = -1;
+
+            log('1/0/0', 'SCENE: LEAVE HOME', '18.001');
+            document.getElementById('dimmer-ui').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
